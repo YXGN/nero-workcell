@@ -31,7 +31,7 @@ class NeroController:
             
             # 初始化末端执行器 (REVO2)
             try:
-                self.end_effector = self.robot.init_effector(self.robot.EFFECTOR.REVO2)
+                self.end_effector = self.robot.init_effector(self.robot.OPTIONS.EFFECTOR.AGX_GRIPPER)
                 logger.info("已初始化 REVO2 末端执行器")
             except Exception as e:
                 logger.warning(f"初始化末端执行器失败 (可能未安装或型号不匹配): {e}")
