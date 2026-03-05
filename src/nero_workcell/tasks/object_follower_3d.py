@@ -156,7 +156,7 @@ class ObjectFollower:
 
         Returns:
             dict | None: A payload with color image and base-frame target object.
-            Returns None when frame read fails, target is missing, or pose read fails.
+            Returns None when frame read fails.
         """
         # Read image and depth frame.
         frame = self.camera.read_frame()
@@ -167,13 +167,13 @@ class ObjectFollower:
         detected_targets = self._yolo_detect(color, depth)
         best_target = self._pick_best_target(detected_targets)
         if best_target is None:
-            return None
+            return {"color": color, "target": None}
 
         # Get current flange pose.
         T_gripper2base = self.robot.get_flange_pose()
         if T_gripper2base is None:
             logger.warning("[detect] Failed to get flange pose: no data")
-            return None
+            return {"color": color, "target": None}
 
         T_cam2base = T_gripper2base @ self.T_cam2gripper
         
@@ -274,9 +274,6 @@ class ObjectFollower:
             while self.is_running:
                 result = self.detect_object()
                 if result is None:
-                    self.pid_x.reset()
-                    self.pid_y.reset()
-                    self.pid_z.reset()
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
                     continue
@@ -284,15 +281,25 @@ class ObjectFollower:
                 display_img = result["color"].copy()
                 target = result["target"]
                 
-                if follow_enabled:
-                    # Execute follow control after manual trigger.
-                    self.follow_target(target)
+                if target is None:
+                    self.pid_x.reset()
+                    self.pid_y.reset()
+                    self.pid_z.reset()
+                    status = "SEARCHING"
+                    status_color = (0, 255, 255)
+                else:
+                    if follow_enabled:
+                        # Execute follow control after manual trigger.
+                        self.follow_target(target)
+                        status = "FOLLOWING"
+                        status_color = (0, 255, 0)
+                    else:
+                        status = "DETECTED: press 's' to follow"
+                        status_color = (0, 255, 255)
 
                 # Draw image-center crosshair.
                 cv2.line(display_img, (center_x-20, center_y), (center_x+20, center_y), (255, 0, 0), 1)
                 cv2.line(display_img, (center_x, center_y-20), (center_x, center_y+20), (255, 0, 0), 1)
-                status = "FOLLOWING" if follow_enabled else "DETECTED: press 's' to follow"
-                status_color = (0, 255, 0) if follow_enabled else (0, 255, 255)
                 cv2.putText(display_img, status, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, status_color, 2)
 
                 cv2.imshow("Object Follower 3D", display_img)
@@ -300,7 +307,7 @@ class ObjectFollower:
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord('q'):
                     break
-                if key == ord('s') and not follow_enabled:
+                if key == ord('s') and not follow_enabled and target is not None:
                     follow_enabled = True
                     logger.info("Follow triggered by key 's'")
                     self.follow_target(target)
