@@ -2,6 +2,7 @@
 Nero robot arm controller wrapper.
 """
 import logging
+import time
 from typing import Optional, List
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -23,7 +24,7 @@ class NeroController:
         self.end_effector = None
         self._connected = False
 
-    def connect(self) -> bool:
+    def connect(self, speed_percent: int = 20) -> bool:
         """Connect to the robot arm."""
         try:
             cfg = create_agx_arm_config(robot=self.robot_type, comm="can", channel=self.channel)
@@ -31,11 +32,22 @@ class NeroController:
             self.robot = AgxArmFactory.create_arm(cfg)
             self.robot.connect()
             self.robot.enable()
+            self.robot.set_speed_percent(speed_percent)
             
             # Initialize end effector (AGX_GRIPPER).
             try:
                 self.end_effector = self.robot.init_effector(self.robot.OPTIONS.EFFECTOR.AGX_GRIPPER)
-                logger.info("AGX_GRIPPER end effector initialized")
+                # Wait for effector to be ready (up to 1.0s)
+                for _ in range(10):
+                    if self.end_effector.is_ok():
+                        break
+                    time.sleep(0.1)
+
+                if self.end_effector.is_ok():
+                    logger.info("AGX_GRIPPER end effector initialized")
+                else:
+                    logger.warning("Failed to initialize end effector: is_ok() is False")
+                    self.end_effector = None
             except Exception as e:
                 logger.warning(f"Failed to initialize end effector (possibly not installed or model mismatch): {e}")
             
@@ -144,7 +156,7 @@ class NeroController:
 
         self.move_p(target_pose)
 
-    def control_gripper(self, width: float, force: float = 1.0):
+    def move_gripper(self, width: float, force: float = 1.0):
         """
         Control the AGX gripper.
 

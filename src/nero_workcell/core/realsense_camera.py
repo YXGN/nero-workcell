@@ -31,7 +31,7 @@ class RealSenseCamera:
             serial_number: Camera serial number (required).
         """
         if not isinstance(serial_number, str) or not serial_number.strip():
-            raise ValueError("serial_number 是必填参数，不能为空")
+            raise ValueError("serial_number is required and cannot be empty")
 
         self.width = width
         self.height = height

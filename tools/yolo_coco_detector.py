@@ -6,6 +6,7 @@ Used for debugging and checking what the camera can detect.
 import argparse
 import logging
 import cv2
+import pyrealsense2 as rs
 
 from nero_workcell.core import RealSenseCamera
 from ultralytics import YOLO
@@ -13,6 +14,7 @@ from ultralytics import YOLO
 def main():
     parser = argparse.ArgumentParser(description="YOLO COCO Detector")
     parser.add_argument("--model", type=str, default="yolo11x.pt", help="Path to YOLO model")
+    parser.add_argument("--serial", type=str, default=None, help="RealSense camera serial number")
     args = parser.parse_args()
 
     # Configure logging
@@ -23,8 +25,19 @@ def main():
     )
     logger = logging.getLogger(__name__)
 
-    logger.info("Initializing camera...")
-    camera = RealSenseCamera(width=640, height=480, fps=30)
+    # Determine camera serial
+    camera_serial = args.serial
+    if camera_serial is None:
+        ctx = rs.context()
+        devices = ctx.query_devices()
+        if len(devices) == 0:
+            logger.error("No RealSense devices found")
+            return
+        camera_serial = devices[0].get_info(rs.camera_info.serial_number)
+        logger.info(f"Auto-detected camera: {camera_serial}")
+
+    logger.info(f"Initializing camera ({camera_serial})...")
+    camera = RealSenseCamera(width=640, height=480, fps=30, serial_number=camera_serial)
     if not camera.start():
         logger.error("Failed to start camera")
         return
