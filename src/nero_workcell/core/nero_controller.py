@@ -3,6 +3,8 @@ Nero 机械臂控制器封装
 """
 import logging
 from typing import Optional, List
+import numpy as np
+from scipy.spatial.transform import Rotation as R
 from pyAgxArm import create_agx_arm_config, AgxArmFactory
 
 logger = logging.getLogger(__name__)
@@ -54,21 +56,25 @@ class NeroController:
     def is_connected(self) -> bool:
         return self._connected and self.robot is not None
 
-    def get_flange_pose(self) -> Optional[List[float]]:
-        """
-        获取机械臂法兰位姿 [x, y, z, r, p, y]
-        通常用于手眼标定，不包含 TCP 偏移
-        """
+    def get_flange_pose(self) -> Optional[np.ndarray]:
+        """获取法兰相对于基座的齐次变换矩阵 (4x4)"""
         if not self.is_connected():
             return None
         try:
             pose = self.robot.get_flange_pose()
             if pose is not None:
-                return pose.msg
-            return None
+                x, y, z, roll, pitch, yaw = pose.msg
+            else:
+                return None
+
+            matrix = np.eye(4)
+            matrix[:3, :3] = R.from_euler('xyz', [roll, pitch, yaw], degrees=False).as_matrix()
+            matrix[:3, 3] = [x, y, z]
+        
         except Exception as e:
             logger.error(f"获取法兰位姿失败: {e}")
             return None
+        return matrix
 
     def get_tcp_pose(self) -> Optional[List[float]]:
         """
