@@ -3,42 +3,37 @@
 Test YOLO for detecting all objects.
 Used for debugging and checking what the camera can detect.
 """
-import sys
+import argparse
+import logging
 import cv2
-from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-from cameras import create_camera
+from nero_workcell.core import RealSenseCamera
 from ultralytics import YOLO
 
-# COCO class names
-COCO_CLASSES = [
-    'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',
-    'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat',
-    'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack',
-    'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
-    'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
-    'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
-    'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair',
-    'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse',
-    'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator',
-    'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
-]
-
 def main():
-    print("Initializing camera...")
-    camera = create_camera('realsense', width=640, height=480)
-    camera.start()
+    parser = argparse.ArgumentParser(description="YOLO COCO Detector")
+    parser.add_argument("--model", type=str, default="yolo11x.pt", help="Path to YOLO model")
+    args = parser.parse_args()
+
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s',
+        datefmt='%H:%M:%S'
+    )
+    logger = logging.getLogger(__name__)
+
+    logger.info("Initializing camera...")
+    camera = RealSenseCamera(width=640, height=480, fps=30)
+    if not camera.start():
+        logger.error("Failed to start camera")
+        return
     
-    print("Loading YOLO model...")
-    checkpoint_dir = PROJECT_ROOT / 'checkpoints'
-    model_path = checkpoint_dir / 'yolo11x.pt'
-    model = YOLO(str(model_path))
+    logger.info(f"Loading YOLO model: {args.model}")
+    model = YOLO(args.model)
     
-    print("\nStarting all-object detection...")
-    print("Press 'q' to quit\n")
+    logger.info("Starting all-object detection...")
+    logger.info("Press 'q' to quit")
     
     while True:
         frame_data = camera.read_frame()
@@ -64,7 +59,7 @@ def main():
                     continue
                 
                 # Get class name
-                class_name = COCO_CLASSES[cls_id] if cls_id < len(COCO_CLASSES) else f"class_{cls_id}"
+                class_name = model.names[cls_id]
                 
                 # Bounding box
                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
@@ -83,10 +78,8 @@ def main():
         
         # Show detected object list
         if detected_objects:
-            print(f"\rDetected {len(detected_objects)} objects: ", end="")
-            for obj_name, obj_conf, obj_id in detected_objects:
-                print(f"{obj_name}(ID:{obj_id}, {obj_conf:.2f}) ", end="")
-            print(" " * 20, end="")  # Clear extra trailing chars
+            objects_str = ", ".join([f"{name}(ID:{oid}, {conf:.2f})" for name, conf, oid in detected_objects])
+            logger.info(f"Detected {len(detected_objects)} objects: {objects_str}")
         
         cv2.imshow('YOLO All Objects Detection', vis_image)
         
@@ -95,7 +88,7 @@ def main():
     
     camera.stop()
     cv2.destroyAllWindows()
-    print("\n\nTest finished")
+    logger.info("Test finished")
 
 if __name__ == '__main__':
     main()
