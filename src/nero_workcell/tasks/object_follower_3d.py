@@ -110,8 +110,10 @@ class ObjectFollower:
                 conf = float(box.conf[0])
 
                 if conf < self.conf_threshold:
+                    logger.debug(f"Skipping {cls_name}: conf {conf:.2f} < {self.conf_threshold}")
                     continue
                 if cls_name != self.target_class:
+                    logger.debug(f"Skipping {cls_name}: not target {self.target_class}")
                     continue
 
                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
@@ -122,6 +124,7 @@ class ObjectFollower:
                 valid = region[region > 0]
                 d = np.median(valid) if len(valid) > 0 else 0
                 if d <= 0:
+                    logger.debug(f"Skipping {cls_name}: invalid depth {d}")
                     continue
 
                 p_cam = np.array([(cu - self.cx) * d / self.fx, (cv_pt - self.cy) * d / self.fy, d])
@@ -156,7 +159,7 @@ class ObjectFollower:
 
         Returns:
             dict | None: A payload with color image and base-frame target object.
-            Returns None when frame read fails.
+            Returns None when frame read fails, target is missing, or pose read fails.
         """
         # Read image and depth frame.
         frame = self.camera.read_frame()
