@@ -329,13 +329,13 @@ def main():
     parser = argparse.ArgumentParser(description="Nero Workcell - Object Following Task")
     parser.add_argument("--target", type=str, default="bottle", help="Target object class name (e.g., bottle, cup)")
     parser.add_argument("--model", type=str, default="yolov8n.pt", help="Path to YOLO model")
-    parser.add_argument("--conf", type=float, default=0.5, help="Confidence threshold")
+    parser.add_argument("--conf", type=float, default=0.2, help="Confidence threshold")
     
     args = parser.parse_args()
     
     # Configure logging.
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format='[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s',
         datefmt='%H:%M:%S'
     )
