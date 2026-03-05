@@ -108,6 +108,16 @@ class RealSenseCamera:
             
         except Exception as e:
             logger.error("[RealSenseCamera] Start failed: %s", e)
+            try:
+                if self.pipeline is not None:
+                    self.pipeline.stop()
+            except Exception as stop_error:
+                logger.debug("[RealSenseCamera] Stop after start failure failed: %s", stop_error)
+            self.pipeline = None
+            self.config = None
+            self.align = None
+            self.profile = None
+            self._is_opened = False
             return False
 
     def read_frame(self) -> Dict[str, Any]:
