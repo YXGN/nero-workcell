@@ -151,7 +151,13 @@ class NeroController:
         """
         Move the robot to a safe 'home' position using joint interpolation.
         """
-        home_joints = [-88, -99, 2.719, 123, 3.036, -2.084, 90]
+        scale = 57324.840764
+        home_joints = [-88000 / scale, 
+                       -95000 / scale, 
+                       2719 / scale, 
+                       123000 / scale, 
+                       3036 / scale, 
+                       -2084 / scale]
         logger.info("Moving to home position: %s", home_joints)
         return self.move_j(home_joints, blocking=blocking)
 
