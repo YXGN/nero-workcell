@@ -153,11 +153,12 @@ class NeroController:
         """
         scale = 57324.840764
         home_joints = [-88000 / scale, 
-                       -95000 / scale, 
+                       -97000 / scale, 
                        2719 / scale, 
-                       123000 / scale, 
-                       3036 / scale, 
-                       -2084 / scale]
+                       118000 / scale,
+                       6882 / scale,
+                       -9 / scale, 
+                       73000 / scale]
         logger.info("Moving to home position: %s", home_joints)
         return self.move_j(home_joints, blocking=blocking)
 
