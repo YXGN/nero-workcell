@@ -210,9 +210,6 @@ class ObjectFollower:
         - target.position must be in the base frame.
         - Desired TCP is self.target_distance meters above the target point.
         """
-        if not self.robot.is_connected():
-            return
-
         if target.frame != "base":
             logger.warning("[follow] Target frame is not base, skipping frame: %s", target.frame)
             return
