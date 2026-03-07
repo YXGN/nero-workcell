@@ -221,11 +221,7 @@ def main():
             fps=FPS,
             serial_number=camera_serial
         )
-        
-        if not camera.start():
-            logger_.error("相机启动失败!")
-            robot.disconnect()
-            return
+        camera.start()
     except Exception as e:
         logger_.error(f"相机创建失败: {e}")
         robot.disconnect()

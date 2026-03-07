@@ -232,13 +232,7 @@ def main():
                 fps=FPS,
                 serial_number=serial
             )
-            
-            if not camera.start():
-                logger_.error(f"相机 {i+1} 启动失败!")
-                for cam in cameras:
-                    cam.stop()
-                robot.disconnect()
-                return
+            camera.start()
         except Exception as e:
             logger_.error(f"相机 {i+1} 创建失败: {e}")
             for cam in cameras:
