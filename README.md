@@ -82,6 +82,10 @@ python -m nero_workcell.tasks.object_follower --target bottle --model yolov8n.pt
 - `--model`：YOLO 模型路径（默认 `yolov8n.pt`）
 - `--conf`：置信度阈值（默认 `0.5`）
 
+检测与三维反投影原理说明见：
+
+- [`docs/yolo_detector.md`](/Users/jianghaiping/robot/nero-workcell/docs/yolo_detector.md)
+
 运行中按 `q` 退出。
 
 ### 2) 眼在手上标定
