@@ -29,7 +29,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 import pyrealsense2 as rs
 
-from nero_workcell.core import NeroController, RealSenseCamera
+from nero_workcell.core import ArmController, RealSenseCamera
 
 logging.basicConfig(
     level=logging.INFO,
@@ -193,7 +193,7 @@ def main():
     
     # 连接 Nero 机械臂
     logger_.info("连接 Nero 机械臂...")
-    robot = NeroController()
+    robot = ArmController()
     
     if not robot.connect():
         logger_.error("无法连接机械臂!")

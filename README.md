@@ -93,7 +93,7 @@ REALSENSE_SERIAL=<serial> python tests/test_realsense_camera.py
 3. 运行 Nero 机械臂真机测试：
 
 ```bash
-python tests/test_nero_controller_real.py
+python tests/test_arm_controller_real.py
 ```
 
 这些都是真机测试。缺少 `pyAgxArm`、`pyrealsense2`、`ultralytics`，或未连接对应真实硬件时，会直接失败。`test_yolo_detector.py` 在连续多帧都检测不到真实目标物体时，也会直接失败。

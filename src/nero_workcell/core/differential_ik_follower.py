@@ -10,8 +10,8 @@ from typing import Optional
 import numpy as np
 
 from .approach_planner import ApproachPlan, ApproachPlanner
+from .arm_controller import ArmController
 from .cartesian_trajectory import CartesianTrajectory
-from .nero_controller import NeroController
 from .nero_pinocchio_model import NeroPinocchioModel
 from .target_object import TargetObject
 
@@ -35,7 +35,7 @@ class DifferentialIKFollower:
     def __init__(
         self,
         model: NeroPinocchioModel,
-        robot: Optional[NeroController] = None,
+        robot: Optional[ArmController] = None,
         *,
         robot_channel: str = "can0",
         standoff_distance: float = 0.3,
@@ -52,7 +52,7 @@ class DifferentialIKFollower:
         pre_standoff_axial_tolerance: float = 0.01,
     ):
         self.model = model
-        self.robot = robot or NeroController(robot_channel)
+        self.robot = robot or ArmController(robot_channel)
         self.planner = ApproachPlanner(
             standoff_distance=standoff_distance,
             pre_standoff_offset=pre_standoff_offset,

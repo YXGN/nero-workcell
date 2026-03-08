@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # coding=utf-8
 """
-NeroController Real Robot Test Cases
+ArmController Real Robot Test Cases
 
 Description:
-- This script tests the core functionality of NeroController on a real robot arm.
+- This script tests the core functionality of ArmController on a real robot arm.
 - Includes connection, status reading, and simple motion tests.
 
 WARNING:
@@ -17,7 +17,7 @@ import unittest
 import time
 import logging
 
-from nero_workcell.core.nero_controller import NeroController
+from nero_workcell.core.arm_controller import ArmController
 
 # Configure logging
 logging.basicConfig(
@@ -25,15 +25,15 @@ logging.basicConfig(
     format="[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
     datefmt="%H:%M:%S",
 )
-logger = logging.getLogger("TestNeroReal")
+logger = logging.getLogger("TestArmControllerReal")
 
 
-class TestNeroControllerReal(unittest.TestCase):
-    """NeroController Real Robot Integration Test"""
+class TestArmControllerReal(unittest.TestCase):
+    """ArmController real robot integration test."""
 
     def setUp(self):
         """Initialize controller before each test"""
-        self.controller = NeroController(channel="can0", robot_type="nero")
+        self.controller = ArmController(channel="can0", robot_type="nero")
         
     def tearDown(self):
         """Disconnect after each test"""

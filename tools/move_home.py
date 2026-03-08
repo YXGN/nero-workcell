@@ -9,7 +9,7 @@ Usage:
 
 import logging
 import argparse
-from nero_workcell.core import NeroController
+from nero_workcell.core import ArmController
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def main():
         datefmt='%H:%M:%S'
     )
 
-    controller = NeroController(channel=args.channel)
+    controller = ArmController(channel=args.channel)
     if not controller.connect(speed_percent=args.speed):
         logger.error("Failed to connect to robot")
         return

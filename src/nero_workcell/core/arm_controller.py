@@ -1,5 +1,5 @@
 """
-Nero robot arm controller wrapper.
+AGX robot arm controller wrapper.
 """
 import logging
 import time
@@ -12,16 +12,18 @@ from .robot_state import RobotState
 
 logger = logging.getLogger(__name__)
 
-class NeroController:
-    ROBOT_TYPE = "nero"
 
-    def __init__(self, channel: str = "can0"):
+class ArmController:
+    DEFAULT_ROBOT_TYPE = "nero"
+
+    def __init__(self, channel: str = "can0", *, robot_type: str = DEFAULT_ROBOT_TYPE):
         """
         Initialize the controller.
 
         :param channel: CAN channel (for example, "can0", "can")
         """
         self.channel = channel
+        self.robot_type = robot_type
         self.config = None
         self.robot = None
         self.end_effector = None
@@ -29,7 +31,7 @@ class NeroController:
 
     def connect(self, speed_percent: int = 20, timeout: float = 5.0) -> bool:
         """Connect to the robot arm."""
-        cfg = create_agx_arm_config(robot=self.ROBOT_TYPE, comm="can", channel=self.channel)
+        cfg = create_agx_arm_config(robot=self.robot_type, comm="can", channel=self.channel)
         assert cfg is not None, "create_agx_arm_config() returned None"
         assert isinstance(cfg, dict), (
             f"create_agx_arm_config() returned invalid config type: {type(cfg).__name__}"
@@ -66,7 +68,7 @@ class NeroController:
             self.end_effector = None
 
         self._connected = True
-        logger.info(f"Connected to Nero robot arm: {self.channel}")
+        logger.info("Connected to %s robot arm: %s", self.robot_type, self.channel)
         return True
 
     def disconnect(self):
@@ -75,7 +77,7 @@ class NeroController:
         self.config = None
         self.robot = None
         self.end_effector = None
-        logger.info("Disconnected from Nero robot arm")
+        logger.info("Disconnected from %s robot arm", self.robot_type)
 
     def is_connected(self) -> bool:
         return self._connected and self.robot is not None
@@ -214,6 +216,10 @@ class NeroController:
         """
         Move the robot to a safe 'home' position using joint interpolation.
         """
+        if self.robot_type != self.DEFAULT_ROBOT_TYPE:
+            raise NotImplementedError(
+                f"move_to_home() is not defined for robot_type={self.robot_type!r}"
+            )
         scale = 57324.840764
         home_joints = [-88000 / scale, 
                        -97000 / scale, 
