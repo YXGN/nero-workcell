@@ -21,7 +21,6 @@ from nero_workcell.core import (
     RealSenseCamera,
     YOLODetector,
 )
-from nero_workcell.core.differential_ik_follower import FollowStep
 from nero_workcell.core.target_object import TargetObject
 from nero_workcell.utils.common import load_eye_in_hand_calibration, transform_to_base
 
@@ -47,16 +46,6 @@ def build_follower(
         standoff_distance=target_distance,
         approach_direction=np.array(approach_direction, dtype=float),
     )
-
-
-def execute_follow_step(
-    follower: DifferentialIKFollower,
-    target: TargetObject,
-) -> tuple[bool, str]:
-    """Run one follower step and return the high-level status."""
-    result: FollowStep = follower.follow_target(target)
-    return result.reached_target, result.phase
-
 
 def detect_object(
     camera: RealSenseCamera,
@@ -150,6 +139,7 @@ def run(
 
     try:
         while True:
+            # 4. 目标识别与检测
             result = detect_object(camera, detector, follower, T_cam2gripper)
             if result is None:
                 if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -169,11 +159,11 @@ def run(
                 status_color = (0, 255, 255)
             else:
                 if follow_enabled:
-                    reached_target, phase = execute_follow_step(follower, active_target)
-                    if reached_target:
+                    step = follower.follow_target(active_target)
+                    if step.reached_target:
                         status = "LOCKED TARGET REACHED"
                         status_color = (0, 255, 0)
-                    elif phase == "staging":
+                    elif step.phase == "staging":
                         status = "APPROACHING STAGING POSE"
                         status_color = (0, 255, 0)
                     else:
@@ -205,7 +195,7 @@ def run(
                 logger.info("Follow triggered by key 's'")
                 locked_target = follower.locked_target
                 if locked_target is not None:
-                    execute_follow_step(follower, locked_target)
+                    follower.follow_target(locked_target)
 
     finally:
         camera.stop()
