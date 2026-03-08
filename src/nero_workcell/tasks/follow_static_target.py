@@ -13,18 +13,55 @@ import logging
 from pathlib import Path
 
 import cv2
+import numpy as np
 
-from nero_workcell.core import ObjectFollower, RealSenseCamera, YOLODetector
+from nero_workcell.core import (
+    DifferentialIKFollower,
+    NeroPinocchioModel,
+    RealSenseCamera,
+    YOLODetector,
+)
+from nero_workcell.core.differential_ik_follower import FollowStep
 from nero_workcell.core.target_object import TargetObject
 from nero_workcell.utils.common import load_eye_in_hand_calibration, transform_to_base
 
 logger = logging.getLogger(__name__)
 
 
+def build_follower(
+    *,
+    robot_channel: str,
+    target_distance: float,
+    urdf_path: str,
+    tcp_frame: str,
+    approach_direction: tuple[float, float, float],
+) -> DifferentialIKFollower:
+    """Construct the Pinocchio-based follower."""
+    model = NeroPinocchioModel(
+        urdf_path=urdf_path,
+        tcp_frame=tcp_frame,
+    )
+    return DifferentialIKFollower(
+        model=model,
+        robot_channel=robot_channel,
+        standoff_distance=target_distance,
+        approach_direction=np.array(approach_direction, dtype=float),
+    )
+
+
+def execute_follow_step(
+    follower: DifferentialIKFollower,
+    target: TargetObject,
+) -> tuple[bool, str]:
+    """Run one follower step and return the high-level status."""
+    result: FollowStep = follower.follow_target(target)
+    return result.reached_target, result.phase
+
+
 def detect_object(
     camera: RealSenseCamera,
     detector: YOLODetector,
-    follower: ObjectFollower,
+    follower: DifferentialIKFollower,
     T_cam2gripper,
 ) -> dict | None:
     frame = camera.read_frame()
@@ -57,10 +94,19 @@ def run(
     camera_serial_number: str | None = None,
     robot_channel: str = "can0",
     target_distance: float = 0.3,
+    urdf_path: str | None = None,
+    tcp_frame: str = NeroPinocchioModel.DEFAULT_TCP_FRAME,
+    approach_direction: tuple[float, float, float] = (0.0, 0.0, -1.0),
 ) -> None:
-    follower = ObjectFollower(
+    if not urdf_path:
+        raise ValueError("urdf_path is required")
+
+    follower = build_follower(
         robot_channel=robot_channel,
         target_distance=target_distance,
+        urdf_path=urdf_path,
+        tcp_frame=tcp_frame,
+        approach_direction=approach_direction,
     )
     detector = YOLODetector(
         target_class=target_class,
@@ -92,6 +138,7 @@ def run(
     if not follower.robot.connect():
         logger.error("Robot connection failed, task aborted")
         return
+    follower.robot.set_normal_mode()
 
     logger.info("Starting follow task, target: %s", target_class)
     logger.info("Press 's' to lock the current target and follow it")
@@ -122,12 +169,15 @@ def run(
                 status_color = (0, 255, 255)
             else:
                 if follow_enabled:
-                    reached_target = follower.follow_target(active_target)
+                    reached_target, phase = execute_follow_step(follower, active_target)
                     if reached_target:
                         status = "LOCKED TARGET REACHED"
                         status_color = (0, 255, 0)
+                    elif phase == "staging":
+                        status = "APPROACHING STAGING POSE"
+                        status_color = (0, 255, 0)
                     else:
-                        status = "FOLLOWING LOCKED TARGET"
+                        status = "FINE ALIGNMENT"
                         status_color = (0, 255, 0)
                 elif detected_target is not None:
                     status = "DETECTED: press 's' to lock"
@@ -155,7 +205,7 @@ def run(
                 logger.info("Follow triggered by key 's'")
                 locked_target = follower.locked_target
                 if locked_target is not None:
-                    follower.follow_target(locked_target)
+                    execute_follow_step(follower, locked_target)
 
     finally:
         camera.stop()
@@ -169,7 +219,32 @@ def main():
     parser.add_argument("--model", type=str, default="yolov8n.pt", help="Path to YOLO model")
     parser.add_argument("--conf", type=float, default=0.2, help="Confidence threshold")
     parser.add_argument("--camera-serial", type=str, default=None, help="RealSense camera serial number")
-    
+    parser.add_argument(
+        "--target-distance",
+        type=float,
+        default=0.3,
+        help="Desired standoff distance from the target point in meters",
+    )
+    parser.add_argument(
+        "--urdf",
+        type=str,
+        required=True,
+        help="Path to the robot URDF file",
+    )
+    parser.add_argument(
+        "--tcp-frame",
+        type=str,
+        default=NeroPinocchioModel.DEFAULT_TCP_FRAME,
+        help="Pinocchio TCP frame name inside the Nero URDF",
+    )
+    parser.add_argument(
+        "--approach-dir",
+        type=float,
+        nargs=3,
+        metavar=("AX", "AY", "AZ"),
+        default=(0.0, 0.0, -1.0),
+        help="Approach direction vector used by the Pinocchio follower",
+    )
     args = parser.parse_args()
     
     # Configure logging.
@@ -185,6 +260,10 @@ def main():
         conf_threshold=args.conf,
         camera_serial_number=args.camera_serial,
         robot_channel="can0",
+        target_distance=args.target_distance,
+        urdf_path=args.urdf,
+        tcp_frame=args.tcp_frame,
+        approach_direction=tuple(float(v) for v in args.approach_dir),
     )
 
 

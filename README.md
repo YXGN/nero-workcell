@@ -11,7 +11,6 @@
 ├── requirements.txt
 ├── src/nero_workcell
 │   ├── core                  # 相机与机械臂控制封装
-│   ├── tasks/object_follower.py
 │   └── eye_in_hand
 │       ├── collect_data.py
 │       ├── eye_in_hand.py
@@ -51,6 +50,7 @@ pip install -e .
 > 说明  
 > - `python-can` 版本要求高于 `3.3.4`。  
 > - `pyAgxArm` 来自 GitHub 源码安装，网络需可访问。  
+> - 目标跟随任务现使用 Pinocchio 进行 Nero 机械臂的模型计算，请预先安装 `pinocchio`。  
 > - 如果 `pyrealsense2` 安装失败，请先确认系统侧 RealSense 运行环境完整。
 
 ## 运行测试
@@ -119,13 +119,22 @@ python tools/get_realsense_serial.py --json
 在仓库根目录执行：
 
 ```bash
-python -m nero_workcell.tasks.follow_static_target --target bottle --model yolov8n.pt --conf 0.5
+python -m nero_workcell.tasks.follow_static_target \
+  --target bottle \
+  --model yolov8n.pt \
+  --conf 0.5 \
+  --urdf /Users/jianghaiping/robot/agx_arm_sim/robot_description/nero_description/urdf/nero_description.urdf
 ```
 
 参数说明：
 - `--target`：目标类别名（如 `bottle`、`cup`）
 - `--model`：YOLO 模型路径（默认 `yolov8n.pt`）
 - `--conf`：置信度阈值（默认 `0.5`）
+- `--target-distance`：目标点的保持距离/接近距离，单位米（默认 `0.3`）
+- `--urdf`：机器人 URDF 路径，必填
+- `--tcp-frame`：URDF 中的末端 frame 名，默认 `end_effector`
+- `--approach-dir AX AY AZ`：接近方向向量，默认 `0 0 -1`
+- `--joint-command-mode`：关节命令接口，`js` 或 `j`（默认 `js`）
 
 检测与三维反投影原理说明见：
 
