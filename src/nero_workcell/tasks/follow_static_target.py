@@ -17,7 +17,7 @@ import numpy as np
 
 from nero_workcell.core import (
     DifferentialIKFollower,
-    NeroPinocchioModel,
+    KinematicsModel,
     RealSenseCamera,
     YOLODetector,
 )
@@ -37,7 +37,7 @@ def build_follower(
     approach_direction: tuple[float, float, float],
 ) -> DifferentialIKFollower:
     """Construct the Pinocchio-based follower."""
-    model = NeroPinocchioModel(
+    model = KinematicsModel(
         urdf_path=urdf_path,
         tcp_frame=tcp_frame,
     )
@@ -95,7 +95,7 @@ def run(
     robot_channel: str = "can0",
     target_distance: float = 0.3,
     urdf_path: str | None = None,
-    tcp_frame: str = NeroPinocchioModel.DEFAULT_TCP_FRAME,
+    tcp_frame: str = KinematicsModel.DEFAULT_TCP_FRAME,
     approach_direction: tuple[float, float, float] = (0.0, 0.0, -1.0),
 ) -> None:
     if not urdf_path:
@@ -234,8 +234,8 @@ def main():
     parser.add_argument(
         "--tcp-frame",
         type=str,
-        default=NeroPinocchioModel.DEFAULT_TCP_FRAME,
-        help="Pinocchio TCP frame name inside the Nero URDF",
+        default=KinematicsModel.DEFAULT_TCP_FRAME,
+        help="Pinocchio TCP frame name inside the robot URDF",
     )
     parser.add_argument(
         "--approach-dir",

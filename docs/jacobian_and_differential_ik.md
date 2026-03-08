@@ -2,7 +2,7 @@
 
 本文档说明以下代码在当前项目中的作用与物理含义：
 
-- [`src/nero_workcell/core/nero_pinocchio_model.py`](../src/nero_workcell/core/nero_pinocchio_model.py)
+- [`src/nero_workcell/core/kinematics_model.py`](../src/nero_workcell/core/kinematics_model.py)
   中的 `forward_tcp_position()` 与 `compute_tcp_position_jacobian()`
 - [`src/nero_workcell/core/differential_ik_follower.py`](../src/nero_workcell/core/differential_ik_follower.py)
   中的 `_solve_joint_velocity()`
@@ -38,7 +38,7 @@ $$ v_{tcp} = J(q) \cdot \dot{q} $$
 
 ## 2. `pin.forwardKinematics(...)` 有什么用
 
-在 [`src/nero_workcell/core/nero_pinocchio_model.py`](../src/nero_workcell/core/nero_pinocchio_model.py)
+在 [`src/nero_workcell/core/kinematics_model.py`](../src/nero_workcell/core/kinematics_model.py)
 里，代码会先调用：
 
 ```python

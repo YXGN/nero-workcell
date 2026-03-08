@@ -1,5 +1,5 @@
 """
-Pinocchio-backed kinematics model for the Nero arm.
+Pinocchio-backed kinematics model for follow tasks.
 """
 
 from pathlib import Path
@@ -9,7 +9,7 @@ import numpy as np
 import pinocchio as pin
 
 
-class NeroPinocchioModel:
+class KinematicsModel:
     """Thin wrapper around Pinocchio for the TCP frame used by follow tasks."""
 
     DEFAULT_TCP_FRAME = "end_effector"

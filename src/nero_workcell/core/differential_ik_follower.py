@@ -12,7 +12,7 @@ import numpy as np
 from .approach_planner import ApproachPlan, ApproachPlanner
 from .arm_controller import ArmController
 from .cartesian_trajectory import CartesianTrajectory
-from .nero_pinocchio_model import NeroPinocchioModel
+from .kinematics_model import KinematicsModel
 from .target_object import TargetObject
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class DifferentialIKFollower:
 
     def __init__(
         self,
-        model: NeroPinocchioModel,
+        model: KinematicsModel,
         robot: Optional[ArmController] = None,
         *,
         robot_channel: str = "can0",
