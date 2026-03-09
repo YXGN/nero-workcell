@@ -1,10 +1,10 @@
 {
     "checkerboard": {
-        "corner_point_long": 9,
-        "corner_point_short": 13,
-        "corner_point_size": 0.04,
+        "corner_point_long": 7,
+        "corner_point_short": 10,
+        "corner_point_size": 0.015,
         "unit": "meters",
-        "description": "棋盘格标定板参数: 9x13角点, 40mm方格"
+        "description": "棋盘格标定板参数: 7x10角点, 15mm方格"
     },
     "camera": {
         "width": 1280,

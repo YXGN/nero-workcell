@@ -212,7 +212,7 @@ def run(
 def main():
     parser = argparse.ArgumentParser(description="Nero Workcell - Follow Static Target Task")
     parser.add_argument("--target", type=str, default="cup", help="Target object class name (e.g., cup, bottle)")
-    parser.add_argument("--model", type=str, default="yolov8n.pt", help="Path to YOLO model")
+    parser.add_argument("--model", type=str, default="yolo11x.pt", help="Path to YOLO model")
     parser.add_argument("--conf", type=float, default=0.2, help="Confidence threshold")
     parser.add_argument("--camera-serial", type=str, default=None, help="RealSense camera serial number")
     parser.add_argument(
