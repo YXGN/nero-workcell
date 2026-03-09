@@ -14,11 +14,17 @@ Optional environment variables:
 - `NERO_ROBOT_TYPE`: robot type passed to `ArmController`. Default: `nero`.
 - `NERO_URDF_PATH`: URDF file path. Default: checked-in Nero URDF.
 - `NERO_TCP_FRAME`: TCP frame name in the URDF. Default: `end_effector`.
+- `NERO_ALLOW_OBSERVABLE_MOTION`: Set to `1` to run the opt-in live-motion test.
 
 Safety:
 - `test_04_follow_target_second_tick_generates_bounded_live_joint_command`
   sends one tiny non-blocking joint command. With the default test parameters,
-  each joint delta is limited to at most 0.001 rad in a single control step.
+  each joint delta is limited to at most 0.001 rad in a single control step,
+  so the robot may not show visible motion even when the test passes.
+- `test_05_follow_target_raises_tcp_five_cm_then_returns_to_start_when_enabled`
+  is disabled by default and runs a complete live cycle in which the TCP is
+  commanded toward a pre-standoff point 5 cm above its starting position and
+  then back to the original standoff point.
 """
 
 import logging
@@ -46,6 +52,8 @@ logger = logging.getLogger("TestDifferentialIKFollowerReal")
 class TestDifferentialIKFollowerReal(unittest.TestCase):
     """Integration tests that exercise DifferentialIKFollower on a live robot state."""
 
+    OBSERVABLE_MOTION_ENV = "NERO_ALLOW_OBSERVABLE_MOTION"
+
     @classmethod
     def _skip_class(cls, message: str):
         logger.warning("Skipping DifferentialIKFollower real integration tests: %s", message)
@@ -54,6 +62,11 @@ class TestDifferentialIKFollowerReal(unittest.TestCase):
     def _skip_test(self, message: str):
         logger.warning("Skipping %s: %s", self.id().split(".")[-1], message)
         self.skipTest(message)
+
+    @classmethod
+    def _env_flag(cls, name: str) -> bool:
+        value = os.environ.get(name, "")
+        return value.strip().lower() in {"1", "true", "yes", "on"}
 
     @classmethod
     def setUpClass(cls):
@@ -70,6 +83,7 @@ class TestDifferentialIKFollowerReal(unittest.TestCase):
         cls.robot_channel = os.environ.get("NERO_ARM_CHANNEL", "can0")
         cls.robot_type = os.environ.get("NERO_ROBOT_TYPE", "nero")
         cls.tcp_frame = os.environ.get("NERO_TCP_FRAME", "end_effector")
+        cls.allow_observable_motion = cls._env_flag(cls.OBSERVABLE_MOTION_ENV)
 
         cls.model = KinematicsModel(
             urdf_path=cls.urdf_path,
@@ -93,11 +107,12 @@ class TestDifferentialIKFollowerReal(unittest.TestCase):
             logger.warning("Failed to switch robot to normal mode: %s", exc)
 
         logger.info(
-            "Using robot channel=%s, robot_type=%s, urdf=%s, tcp_frame=%s",
+            "Using robot channel=%s, robot_type=%s, urdf=%s, tcp_frame=%s, observable_motion=%s",
             cls.robot_channel,
             cls.robot_type,
             cls.urdf_path,
             cls.tcp_frame,
+            cls.allow_observable_motion,
         )
 
     @classmethod
@@ -205,8 +220,11 @@ class TestDifferentialIKFollowerReal(unittest.TestCase):
         np.testing.assert_allclose(step.tracking_error, np.zeros(3, dtype=float), atol=0.0, rtol=0.0)
 
     def test_04_follow_target_second_tick_generates_bounded_live_joint_command(self):
-        """验证第二个控制 tick 会在真机状态下生成受限且有限的关节命令。"""
-        logger.info("=== Test 04: Second Tick Produces Small Joint Command ===")
+        """验证第二个控制 tick 会生成小幅度命令，但默认不要求观察到真机位移。"""
+        logger.info(
+            "=== Test 04: Second Tick Produces Small Joint Command "
+            "(command generation only; visible motion is not required) ==="
+        )
         live_tcp_position = self._read_live_tcp_position()
         # 将最终 standoff 点放在当前 TCP 位置，但保留一个更远的 pre-standoff 点，
         # 这样 follower 会先进入 staging 阶段，而不是在第一拍就直接判定到达目标。
@@ -274,6 +292,87 @@ class TestDifferentialIKFollowerReal(unittest.TestCase):
 
         # 给底层控制器一点时间消费非阻塞命令，避免测试结束时命令刚发出。
         time.sleep(3)
+
+    def test_05_follow_target_raises_tcp_five_cm_then_returns_to_start_when_enabled(self):
+        """验证在显式允许真实运动时，TCP 会先上升约 5cm，然后回到起始位置附近。"""
+        logger.info("=== Test 05: TCP Up 5cm Then Return (opt-in) ===")
+        if not self.allow_observable_motion:
+            self._skip_test(
+                f"Set {self.OBSERVABLE_MOTION_ENV}=1 to run the observable live-motion test"
+            )
+
+        start_q = self._read_live_joint_configuration()
+        start_tcp_position = self.model.forward_tcp_position(start_q)
+        follower = self._make_follower(
+            standoff_distance=0.0,
+            pre_standoff_offset=0.05,
+            control_period=0.05,
+            max_cartesian_speed=0.03,
+            max_joint_speed=0.3,
+            position_gain=1.2,
+            pre_standoff_axial_tolerance=0.005,
+        )
+        target = self._make_base_target(start_tcp_position)
+        expected_rise = 0.05
+        rise_threshold = 0.045
+        return_tolerance = 0.01
+        timeout = 12.0
+        peak_rise = 0.0
+        observed_rise = False
+        final_tcp_position = start_tcp_position.copy()
+        last_step = None
+
+        try:
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                last_step = follower.follow_target(target)
+                time.sleep(follower.control_period)
+
+                current_q = self._read_live_joint_configuration()
+                final_tcp_position = self.model.forward_tcp_position(current_q)
+                peak_rise = max(peak_rise, float(final_tcp_position[2] - start_tcp_position[2]))
+
+                if peak_rise >= rise_threshold:
+                    observed_rise = True
+
+                if (
+                    observed_rise
+                    and last_step is not None
+                    and last_step.reached_target
+                    and np.linalg.norm(final_tcp_position - start_tcp_position) <= return_tolerance
+                ):
+                    break
+            else:
+                self.fail(
+                    "Follower did not complete the expected live TCP cycle within "
+                    f"{timeout:.1f}s; peak rise {peak_rise:.4f} m "
+                    f"(planned {expected_rise:.4f} m), "
+                    f"final position error {np.linalg.norm(final_tcp_position - start_tcp_position):.4f} m, "
+                    f"last phase={None if last_step is None else last_step.phase}, "
+                    f"reached_target={None if last_step is None else last_step.reached_target}"
+                )
+
+            self.assertGreaterEqual(
+                peak_rise,
+                rise_threshold,
+                msg=(
+                    "TCP should first rise close to the 5 cm pre-standoff point; "
+                    f"observed peak rise {peak_rise:.4f} m"
+                ),
+            )
+            self.assertLessEqual(
+                np.linalg.norm(final_tcp_position - start_tcp_position),
+                return_tolerance,
+                msg=(
+                    "TCP should return close to the starting standoff point; "
+                    f"observed error {np.linalg.norm(final_tcp_position - start_tcp_position):.4f} m"
+                ),
+            )
+            self.assertIsNotNone(last_step)
+            self.assertTrue(last_step.reached_target)
+            self.assertEqual(last_step.phase, "fine")
+        finally:
+            self.controller.move_j(start_q.tolist(), blocking=True, timeout=10.0)
 
 
 if __name__ == "__main__":
