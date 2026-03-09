@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class ArmController:
     DEFAULT_ROBOT_TYPE = "nero"
+    _POLL_INTERVAL = 0.1
 
     def __init__(self, channel: str = "can0", *, robot_type: str = DEFAULT_ROBOT_TYPE):
         """
@@ -29,54 +30,81 @@ class ArmController:
         self.end_effector = None
         self._connected = False
 
+    def _clear_connection_state(self):
+        self.config = None
+        self.robot = None
+        self.end_effector = None
+        self._connected = False
+
+    def _wait_until_enabled(self, robot, *, timeout: float):
+        deadline = time.monotonic() + timeout
+        while not robot.enable():
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"Failed to enable robot: Timeout ({timeout}s) exceeded")
+            time.sleep(self._POLL_INTERVAL)
+
+    def _wait_until_end_effector_ready(
+        self,
+        end_effector,
+        *,
+        timeout: float,
+    ):
+        deadline = time.monotonic() + timeout
+        while not end_effector.is_ok():
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Failed to initialize end effector: Timeout ({timeout}s) exceeded"
+                )
+            time.sleep(self._POLL_INTERVAL)
+
+        logger.info("AGX_GRIPPER end effector initialized")
+        return end_effector
+
     def connect(self, speed_percent: int = 5, timeout: float = 5.0) -> bool:
         """Connect to the robot arm."""
+        if self.is_connected():
+            logger.warning(
+                "connect() called while already connected to %s robot arm: %s",
+                self.robot_type, self.channel,
+            )
+            return True
+
+        if not 0 <= speed_percent <= 100:
+            raise ValueError(f"speed_percent must be in [0, 100], got {speed_percent}")
+        if timeout <= 0.0:
+            raise ValueError(f"timeout must be greater than 0, got {timeout}")
+
         cfg = create_agx_arm_config(robot=self.robot_type, comm="can", channel=self.channel)
         assert cfg is not None, "create_agx_arm_config() returned None"
         assert isinstance(cfg, dict), (
             f"create_agx_arm_config() returned invalid config type: {type(cfg).__name__}"
         )
+        
+        robot = AgxArmFactory.create_arm(cfg)
+        # The vendor docs recommend creating the effector driver before connect().
+        end_effector = robot.init_effector(robot.OPTIONS.EFFECTOR.AGX_GRIPPER)
+        if end_effector is None:
+            raise RuntimeError(
+                "Failed to initialize end effector: init_effector() returned None"
+            )
+        robot.connect()
+        self._wait_until_enabled(robot, timeout=timeout)
+        robot.set_speed_percent(speed_percent)
+        end_effector = self._wait_until_end_effector_ready(
+            end_effector,
+            timeout=timeout,
+        )
+
         self.config = cfg
-        
-        self.robot = AgxArmFactory.create_arm(cfg)
-        self.robot.connect()
-        
-        # Enable robot with timeout check
-        start_t = time.monotonic()
-        while True:
-            self.robot.enable()
-            time.sleep(0.5)
-            if self.robot.get_arm_status() is not None:
-                break
-            if time.monotonic() - start_t > timeout:
-                raise RuntimeError(f"Failed to enable robot: Timeout ({timeout}s) exceeded")
-
-        self.robot.set_speed_percent(speed_percent)
-        
-        # Initialize end effector (AGX_GRIPPER).
-        self.end_effector = self.robot.init_effector(self.robot.OPTIONS.EFFECTOR.AGX_GRIPPER)
-        # Wait for effector to be ready (up to 1.0s)
-        for _ in range(10):
-            if self.end_effector.is_ok():
-                break
-            time.sleep(0.1)
-
-        if self.end_effector.is_ok():
-            logger.info("AGX_GRIPPER end effector initialized")
-        else:
-            logger.warning("Failed to initialize end effector: is_ok() is False")
-            self.end_effector = None
-
+        self.robot = robot
+        self.end_effector = end_effector
         self._connected = True
         logger.info("Connected to %s robot arm: %s", self.robot_type, self.channel)
         return True
 
     def disconnect(self):
         """Disconnect from the robot."""
-        self._connected = False
-        self.config = None
-        self.robot = None
-        self.end_effector = None
+        self._clear_connection_state()
         logger.info("Disconnected from %s robot arm", self.robot_type)
 
     def is_connected(self) -> bool:
@@ -291,8 +319,5 @@ class ArmController:
         :param force: Gripping force (newtons), range [0.0, 3.0]
         """
         assert self.is_connected(), "Robot is not connected"
-        if self.end_effector is None:
-            logger.warning("Cannot control gripper: end effector not initialized")
-            return
-
+        assert self.end_effector is not None, "End effector is not initialized"
         self.end_effector.move_gripper(width=width, force=force)
