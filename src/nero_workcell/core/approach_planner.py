@@ -2,9 +2,12 @@
 Geometric helpers for approaching a static 3D target point.
 """
 
+import logging
 from dataclasses import dataclass
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -130,10 +133,19 @@ class ApproachPlanner:
     ) -> bool:
         """Check whether the TCP is close enough to the pre-standoff waypoint."""
         components = self.decompose_offset(tcp_position, plan.pre_standoff_position)
-        return (
-            np.linalg.norm(components.lateral_offset) <= lateral_tolerance
-            and np.linalg.norm(components.axial_offset) <= axial_tolerance
+        lateral_offset_norm = float(np.linalg.norm(components.lateral_offset))
+        axial_offset_norm = float(np.linalg.norm(components.axial_offset))
+        reached = (
+            lateral_offset_norm <= lateral_tolerance
+            and axial_offset_norm <= axial_tolerance
         )
+        if reached:
+            logger.info(
+                "[approach] pre-standoff reached: lateral_offset=%.4f axial_offset=%.4f",
+                lateral_offset_norm,
+                axial_offset_norm,
+            )
+        return reached
 
     def is_standoff_reached(
         self,
@@ -144,4 +156,11 @@ class ApproachPlanner:
     ) -> bool:
         """Check whether the TCP has reached the standoff goal."""
         tcp_position = np.array(tcp_position, dtype=float)
-        return np.linalg.norm(plan.standoff_position - tcp_position) <= position_tolerance
+        position_offset_norm = float(np.linalg.norm(plan.standoff_position - tcp_position))
+        reached = position_offset_norm <= position_tolerance
+        if reached:
+            logger.info(
+                "[approach] standoff reached: position_offset=%.4f",
+                position_offset_norm,
+            )
+        return reached
