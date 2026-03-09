@@ -217,7 +217,7 @@ class TestDifferentialIKFollowerReal(unittest.TestCase):
         self.assertEqual(step.commanded_joints.shape, (self.model.nq,))
         self.assertTrue(np.isfinite(step.commanded_joints).all())
         np.testing.assert_allclose(step.target_position, target.position, atol=1e-9, rtol=0.0)
-        np.testing.assert_allclose(step.tracking_error, np.zeros(3, dtype=float), atol=0.0, rtol=0.0)
+        np.testing.assert_allclose(step.tracking_offset, np.zeros(3, dtype=float), atol=0.0, rtol=0.0)
 
     def test_04_follow_target_second_tick_generates_bounded_live_joint_command(self):
         """验证第二个控制 tick 会生成小幅度命令，但默认不要求观察到真机位移。"""
@@ -255,8 +255,8 @@ class TestDifferentialIKFollowerReal(unittest.TestCase):
         self.assertIsNotNone(first_step.commanded_joints)
         self.assertIsNotNone(second_step.commanded_joints)
         self.assertTrue(np.isfinite(second_step.commanded_joints).all())
-        self.assertTrue(np.isfinite(second_step.tracking_error).all())
-        self.assertGreater(np.linalg.norm(second_step.tracking_error), 0.0)
+        self.assertTrue(np.isfinite(second_step.tracking_offset).all())
+        self.assertGreater(np.linalg.norm(second_step.tracking_offset), 0.0)
         # 第二拍应当产生可观测的 joint-space 更新，而不是和第一拍完全相同。
         self.assertFalse(
             np.allclose(

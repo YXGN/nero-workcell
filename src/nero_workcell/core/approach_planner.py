@@ -25,11 +25,25 @@ class ApproachPlan:
 
 
 @dataclass(frozen=True)
-class ErrorComponents:
-    """Error decomposition along and orthogonal to the approach axis."""
+class OffsetComponents:
+    """参考位置偏移在接近轴方向和横向方向上的分解结果。
 
-    axial_error: np.ndarray
-    lateral_error: np.ndarray
+    字段说明：
+        axial_offset: 沿 ``approach_direction`` 的偏移分量，表示末端在接近方向上还差多少。
+        lateral_offset: 垂直于 ``approach_direction`` 的偏移分量，表示末端偏离接近轴多少。
+
+    示例：
+        若 ``approach_direction = [0, 0, -1]``，且
+        ``target_position - tcp_position = [0.02, -0.02, -0.10]``，则：
+
+        - ``axial_offset = [0.00, 0.00, -0.10]``
+        - ``lateral_offset = [0.02, -0.02, 0.00]``
+
+        这表示末端还需要沿接近方向推进 10 cm，同时在横向上偏离接近轴 2 cm。
+    """
+
+    axial_offset: np.ndarray
+    lateral_offset: np.ndarray
 
 
 class ApproachPlanner:
@@ -77,17 +91,6 @@ class ApproachPlanner:
             raise ValueError("approach_direction must be non-zero")
         return vector / norm
 
-    def with_approach_direction(
-        self,
-        approach_direction: np.ndarray | tuple[float, float, float],
-    ) -> "ApproachPlanner":
-        """Create a copy with a different approach axis."""
-        return ApproachPlanner(
-            standoff_distance=self.standoff_distance,
-            pre_standoff_offset=self.pre_standoff_offset,
-            approach_direction=approach_direction,
-        )
-
     def make_plan(self, target_position: np.ndarray) -> ApproachPlan:
         """Compute the pre-standoff point and final standoff point."""
         target_position = np.array(target_position, dtype=float)
@@ -102,18 +105,20 @@ class ApproachPlanner:
             approach_direction=self.approach_direction.copy(),
         )
 
-    def decompose_error(
+    def decompose_offset(
         self,
         tcp_position: np.ndarray,
-        reference_position: np.ndarray,
-    ) -> ErrorComponents:
-        """Split reference tracking error into axial and lateral components."""
+        target_position: np.ndarray,
+    ) -> OffsetComponents:
+        """Split the TCP-to-target position offset into axial and lateral components."""
         tcp_position = np.array(tcp_position, dtype=float)
-        reference_position = np.array(reference_position, dtype=float)
-        error = reference_position - tcp_position
-        axial_error = np.dot(error, self.approach_direction) * self.approach_direction
-        lateral_error = error - axial_error
-        return ErrorComponents(axial_error=axial_error, lateral_error=lateral_error)
+        target_position = np.array(target_position, dtype=float)
+        position_offset = target_position - tcp_position
+        axial_offset = (
+            np.dot(position_offset, self.approach_direction) * self.approach_direction
+        )
+        lateral_offset = position_offset - axial_offset
+        return OffsetComponents(axial_offset=axial_offset, lateral_offset=lateral_offset)
 
     def is_pre_standoff_reached(
         self,
@@ -124,10 +129,10 @@ class ApproachPlanner:
         axial_tolerance: float,
     ) -> bool:
         """Check whether the TCP is close enough to the pre-standoff waypoint."""
-        components = self.decompose_error(tcp_position, plan.pre_standoff_position)
+        components = self.decompose_offset(tcp_position, plan.pre_standoff_position)
         return (
-            np.linalg.norm(components.lateral_error) <= lateral_tolerance
-            and np.linalg.norm(components.axial_error) <= axial_tolerance
+            np.linalg.norm(components.lateral_offset) <= lateral_tolerance
+            and np.linalg.norm(components.axial_offset) <= axial_tolerance
         )
 
     def is_standoff_reached(

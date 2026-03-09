@@ -26,7 +26,7 @@ class FollowStep:
     phase: str
     target_position: Optional[np.ndarray] = None
     commanded_joints: Optional[np.ndarray] = None
-    tracking_error: Optional[np.ndarray] = None
+    tracking_offset: Optional[np.ndarray] = None
 
 
 class DifferentialIKFollower:
@@ -187,11 +187,11 @@ class DifferentialIKFollower:
             now: 当前控制时刻，通常使用单调时钟时间。
 
         返回：
-            FollowStep: 当前控制步的执行结果，包含当前阶段、参考位置、下发的目标关节角以及当前位置误差。
+            FollowStep: 当前控制步的执行结果，包含当前阶段、参考位置、下发的目标关节角以及当前位置偏移。
 
         说明：
             该函数会先对当前局部轨迹进行采样，得到参考位置和参考速度，
-            再结合 TCP 位置误差构造期望笛卡尔速度，随后通过 differential IK
+            再结合 TCP 位置偏移构造期望笛卡尔速度，随后通过 differential IK
             将末端速度映射为关节速度，并积分得到下一拍的目标关节角发送给机器人。
             该函数只负责“向目标迈进一步”，是否真正到达目标由外层流程判断。
         """
@@ -204,11 +204,11 @@ class DifferentialIKFollower:
                 max_speed=self.max_cartesian_speed,
             )
         sample = self._active_trajectory.sample(now)
-        # 计算 TCP 相对当前参考点的三维位置误差。
-        error = sample.position - tcp_position
-        # 将轨迹前馈速度与位置误差反馈叠加，形成期望末端速度。
+        # 计算 TCP 相对当前参考点的三维位置偏移。
+        position_offset = sample.position - tcp_position
+        # 将轨迹前馈速度与位置偏移反馈叠加，形成期望末端速度。
         desired_velocity = self._clip_cartesian_velocity(
-            sample.velocity + self.position_gain * error
+            sample.velocity + self.position_gain * position_offset
         )
         # 用 differential IK 将期望末端速度映射为关节速度。
         dq = self._solve_joint_velocity(q, desired_velocity)
@@ -221,7 +221,7 @@ class DifferentialIKFollower:
             phase=self.follow_phase,
             target_position=sample.position,
             commanded_joints=q_target,
-            tracking_error=error,
+            tracking_offset=position_offset,
         )
 
     def follow_target(self, target: TargetObject, *, now: Optional[float] = None) -> FollowStep:
@@ -271,7 +271,7 @@ class DifferentialIKFollower:
                 phase=self.follow_phase,
                 target_position=self._active_plan.standoff_position.copy(),
                 commanded_joints=q.copy(),
-                tracking_error=np.zeros(3, dtype=float),
+                tracking_offset=np.zeros(3, dtype=float),
             )
 
         return self._step_toward(

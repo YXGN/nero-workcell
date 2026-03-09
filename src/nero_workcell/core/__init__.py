@@ -1,4 +1,4 @@
-from .approach_planner import ApproachPlan, ApproachPlanner, ErrorComponents
+from .approach_planner import ApproachPlan, ApproachPlanner, OffsetComponents
 from .arm_controller import ArmController
 from .cartesian_trajectory import CartesianTrajectory, TrajectorySample
 from .differential_ik_follower import DifferentialIKFollower, FollowStep
@@ -13,7 +13,7 @@ __all__ = [
     "ApproachPlanner",
     "CartesianTrajectory",
     "DifferentialIKFollower",
-    "ErrorComponents",
+    "OffsetComponents",
     "FollowStep",
     "KinematicsModel",
     "RealSenseCamera",
