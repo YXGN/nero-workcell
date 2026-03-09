@@ -208,9 +208,11 @@ class TestDifferentialIKFollowerReal(unittest.TestCase):
         """验证第二个控制 tick 会在真机状态下生成受限且有限的关节命令。"""
         logger.info("=== Test 04: Second Tick Produces Small Joint Command ===")
         live_tcp_position = self._read_live_tcp_position()
+        # 将最终 standoff 点放在当前 TCP 位置，但保留一个更远的 pre-standoff 点，
+        # 这样 follower 会先进入 staging 阶段，而不是在第一拍就直接判定到达目标。
         follower = self._make_follower(
             standoff_distance=0.0,
-            pre_standoff_offset=0.005,
+            pre_standoff_offset=0.05,
             control_period=0.01,
             max_cartesian_speed=0.02,
             max_joint_speed=0.1,
@@ -219,9 +221,15 @@ class TestDifferentialIKFollowerReal(unittest.TestCase):
         target = self._make_base_target(live_tcp_position)
         t0 = 200.0
 
+        # 第一拍用于创建接近 plan 和局部 minimum-jerk 轨迹；此时轨迹刚起步，
+        # 参考点仍接近起点，因此命令变化应很小。
         first_step = follower.follow_target(target, now=t0)
-        second_step = follower.follow_target(target, now=t0 + 0.25)
+        # 第二拍采样到 pre-standoff 轨迹末端（0.05 / 0.02 = 2.5s），
+        # follower 应该在 staging 阶段生成一条非零但受限的关节命令。
+        second_step = follower.follow_target(target, now=t0 + 2.5)
 
+        # 两拍都不应直接宣告“已到达最终 standoff 点”，因为这里测试的是
+        # staging 阶段的关节命令生成，而不是最终闭环收敛。
         self.assertFalse(first_step.reached_target)
         self.assertEqual(first_step.phase, "staging")
         self.assertFalse(second_step.reached_target)
@@ -231,6 +239,7 @@ class TestDifferentialIKFollowerReal(unittest.TestCase):
         self.assertTrue(np.isfinite(second_step.commanded_joints).all())
         self.assertTrue(np.isfinite(second_step.tracking_error).all())
         self.assertGreater(np.linalg.norm(second_step.tracking_error), 0.0)
+        # 第二拍应当产生可观测的 joint-space 更新，而不是和第一拍完全相同。
         self.assertFalse(
             np.allclose(
                 second_step.commanded_joints,
@@ -241,6 +250,8 @@ class TestDifferentialIKFollowerReal(unittest.TestCase):
             msg="The second control tick should produce a non-zero joint-space update",
         )
 
+        # 验证单拍关节变化受 max_joint_speed * control_period 约束，
+        # 同时最终输出仍然落在模型关节限位内。
         joint_delta = second_step.commanded_joints - first_step.commanded_joints
         self.assertLessEqual(
             float(np.max(np.abs(joint_delta))),
@@ -261,7 +272,8 @@ class TestDifferentialIKFollowerReal(unittest.TestCase):
             rtol=0.0,
         )
 
-        time.sleep(0.3)
+        # 给底层控制器一点时间消费非阻塞命令，避免测试结束时命令刚发出。
+        time.sleep(3)
 
 
 if __name__ == "__main__":
