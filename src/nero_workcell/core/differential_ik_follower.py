@@ -38,7 +38,7 @@ class DifferentialIKFollower:
         robot: Optional[ArmController] = None,
         *,
         robot_channel: str = "can0",
-        standoff_distance: float = 0.3,
+        standoff_distance: float = 0.1,
         pre_standoff_offset: float = 0.08,
         approach_direction: np.ndarray | tuple[float, float, float] = (0.0, 0.0, -1.0),
         control_period: float = 0.05,
