@@ -217,6 +217,7 @@ def build_output_payload(
         ],
         dtype=float,
     )
+    checkerboard_center_camera = T_board2cam @ checkerboard_center_board
     checkerboard_center_base = T_board2base @ checkerboard_center_board
 
     return {
@@ -225,6 +226,16 @@ def build_output_payload(
         "resolution": {
             "width": int(width),
             "height": int(height),
+        },
+        "checkerboard_origin_camera_m": {
+            "x": float(T_board2cam[0, 3]),
+            "y": float(T_board2cam[1, 3]),
+            "z": float(T_board2cam[2, 3]),
+        },
+        "checkerboard_center_camera_m": {
+            "x": float(checkerboard_center_camera[0]),
+            "y": float(checkerboard_center_camera[1]),
+            "z": float(checkerboard_center_camera[2]),
         },
         "checkerboard_origin_base_m": {
             "x": float(T_board2base[0, 3]),
@@ -253,22 +264,27 @@ def build_output_payload(
 
 
 def print_human_readable(payload: dict[str, Any]) -> None:
-    origin = payload["checkerboard_origin_base_m"]
-    center = payload["checkerboard_center_base_m"]
-    euler = payload["checkerboard_euler_base_deg"]
+    origin_camera = payload["checkerboard_origin_camera_m"]
+    center_camera = payload["checkerboard_center_camera_m"]
+    origin_base = payload["checkerboard_origin_base_m"]
+    center_base = payload["checkerboard_center_base_m"]
 
+    print("checkerboard center in camera frame [m]:")
+    print(f"  x: {center_camera['x']:.6f}")
+    print(f"  y: {center_camera['y']:.6f}")
+    print(f"  z: {center_camera['z']:.6f}")
+    print("checkerboard origin in camera frame [m]:")
+    print(f"  x: {origin_camera['x']:.6f}")
+    print(f"  y: {origin_camera['y']:.6f}")
+    print(f"  z: {origin_camera['z']:.6f}")
     print("checkerboard center in base frame [m]:")
-    print(f"  x: {center['x']:.6f}")
-    print(f"  y: {center['y']:.6f}")
-    print(f"  z: {center['z']:.6f}")
+    print(f"  x: {center_base['x']:.6f}")
+    print(f"  y: {center_base['y']:.6f}")
+    print(f"  z: {center_base['z']:.6f}")
     print("checkerboard origin in base frame [m]:")
-    print(f"  x: {origin['x']:.6f}")
-    print(f"  y: {origin['y']:.6f}")
-    print(f"  z: {origin['z']:.6f}")
-    print("checkerboard orientation in base frame [deg]:")
-    print(f"  rx: {euler['rx']:.3f}")
-    print(f"  ry: {euler['ry']:.3f}")
-    print(f"  rz: {euler['rz']:.3f}")
+    print(f"  x: {origin_base['x']:.6f}")
+    print(f"  y: {origin_base['y']:.6f}")
+    print(f"  z: {origin_base['z']:.6f}")
 
 
 def main() -> int:
