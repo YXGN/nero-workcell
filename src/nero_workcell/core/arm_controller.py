@@ -29,7 +29,7 @@ class ArmController:
         self.end_effector = None
         self._connected = False
 
-    def connect(self, speed_percent: int = 20, timeout: float = 5.0) -> bool:
+    def connect(self, speed_percent: int = 5, timeout: float = 5.0) -> bool:
         """Connect to the robot arm."""
         cfg = create_agx_arm_config(robot=self.robot_type, comm="can", channel=self.channel)
         assert cfg is not None, "create_agx_arm_config() returned None"

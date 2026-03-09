@@ -93,7 +93,7 @@ class CartesianTrajectory:
         )
 
     def sample(self, now: float) -> TrajectorySample:
-        """按给定时刻对最小跃度笛卡尔轨迹进行采样。
+        """按给定时刻对 minimum-jerk 笛卡尔轨迹进行采样。
 
         参数：
             now:

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def main():
     parser = argparse.ArgumentParser(description="Nero Workcell - Move to Home")
     parser.add_argument("--channel", type=str, default="can0", help="CAN channel")
-    parser.add_argument("--speed", type=int, default=20, help="Movement speed percent")
+    parser.add_argument("--speed", type=int, default=5, help="Movement speed percent")
     args = parser.parse_args()
 
     logging.basicConfig(
