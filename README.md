@@ -51,6 +51,7 @@ pip install -e .
 > - `python-can` 版本要求高于 `3.3.4`。  
 > - `pyAgxArm` 来自 GitHub 源码安装，网络需可访问。  
 > - 目标跟随任务现使用 Pinocchio 进行 Nero 机械臂的模型计算，请预先安装 `pinocchio`。  
+> - 如果使用 ROS Humble 自带或其他基于 NumPy 1.x 构建的 `pinocchio`，请保持 `numpy<2`，否则可能出现 `_ARRAY_API not found` 或导入时崩溃。  
 > - 如果 `pyrealsense2` 安装失败，请先确认系统侧 RealSense 运行环境完整。
 
 ## 运行测试
@@ -123,7 +124,7 @@ python -m nero_workcell.tasks.follow_static_target \
   --target bottle \
   --model yolov8n.pt \
   --conf 0.5 \
-  --urdf /Users/jianghaiping/robot/agx_arm_sim/robot_description/nero_description/urdf/nero_description.urdf
+  --urdf ./nero_description/urdf/nero_description.urdf
 ```
 
 参数说明：
@@ -131,14 +132,14 @@ python -m nero_workcell.tasks.follow_static_target \
 - `--model`：YOLO 模型路径（默认 `yolov8n.pt`）
 - `--conf`：置信度阈值（默认 `0.5`）
 - `--target-distance`：目标点的保持距离/接近距离，单位米（默认 `0.3`）
-- `--urdf`：机器人 URDF 路径，必填
+- `--urdf`：机器人 URDF 路径，默认使用仓库内置的 `./nero_description/urdf/nero_description.urdf`
 - `--tcp-frame`：URDF 中的末端 frame 名，默认 `end_effector`
 - `--approach-dir AX AY AZ`：接近方向向量，默认 `0 0 -1`
 - `--joint-command-mode`：关节命令接口，`js` 或 `j`（默认 `js`）
 
 检测与三维反投影原理说明见：
 
-- [`docs/yolo_detector.md`](/Users/jianghaiping/robot/nero-workcell/docs/yolo_detector.md)
+- [`docs/yolo_detector.md`](docs/yolo_detector.md)
 
 运行中按 `q` 退出。
 

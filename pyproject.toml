@@ -9,13 +9,12 @@ description = "Nero workcell toolkit for RealSense, calibration, and robot tasks
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "numpy",
+    "numpy<2",
     "opencv-python",
     "scipy",
     "pyrealsense2",
     "ultralytics",
     "python-can>3.3.4",
-    "pyAgxArm @ git+https://github.com/agilexrobotics/pyAgxArm.git",
 ]
 
 [tool.setuptools]

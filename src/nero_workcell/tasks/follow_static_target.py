@@ -25,6 +25,12 @@ from nero_workcell.core.target_object import TargetObject
 from nero_workcell.utils.common import load_eye_in_hand_calibration, transform_to_base
 
 logger = logging.getLogger(__name__)
+DEFAULT_URDF_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "nero_description"
+    / "urdf"
+    / "nero_description.urdf"
+)
 
 
 def build_follower(
@@ -83,7 +89,7 @@ def run(
     camera_serial_number: str | None = None,
     robot_channel: str = "can0",
     target_distance: float = 0.3,
-    urdf_path: str | None = None,
+    urdf_path: str | None = str(DEFAULT_URDF_PATH),
     tcp_frame: str = KinematicsModel.DEFAULT_TCP_FRAME,
     approach_direction: tuple[float, float, float] = (0.0, 0.0, -1.0),
 ) -> None:
@@ -218,7 +224,7 @@ def main():
     parser.add_argument(
         "--urdf",
         type=str,
-        required=True,
+        default=str(DEFAULT_URDF_PATH),
         help="Path to the robot URDF file",
     )
     parser.add_argument(

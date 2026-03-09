@@ -38,16 +38,25 @@ class TestKinematicsModelReal(unittest.TestCase):
     """Integration tests that exercise KinematicsModel on a live robot state."""
 
     @classmethod
+    def _skip_class(cls, message: str):
+        logger.warning("Skipping KinematicsModel real integration tests: %s", message)
+        raise unittest.SkipTest(message)
+
+    def _skip_test(self, message: str):
+        logger.warning("Skipping %s: %s", self.id().split(".")[-1], message)
+        self.skipTest(message)
+
+    @classmethod
     def setUpClass(cls):
         repo_root = Path(__file__).resolve().parents[1]
         cls.urdf_path = Path(
             os.environ.get(
                 "NERO_URDF_PATH",
-                repo_root / "third_party" / "nero_description" / "urdf" / "nero_description.urdf",
+                repo_root / "nero_description" / "urdf" / "nero_description.urdf",
             )
         ).resolve()
         if not cls.urdf_path.exists():
-            raise unittest.SkipTest(f"URDF file not found: {cls.urdf_path}")
+            cls._skip_class(f"URDF file not found: {cls.urdf_path}")
 
         cls.robot_channel = os.environ.get("NERO_ARM_CHANNEL", "can0")
         cls.robot_type = os.environ.get("NERO_ROBOT_TYPE", "nero")
@@ -64,10 +73,10 @@ class TestKinematicsModelReal(unittest.TestCase):
         try:
             connected = cls.controller.connect()
         except Exception as exc:
-            raise unittest.SkipTest(f"Cannot connect to robot arm: {exc}") from exc
+            cls._skip_class(f"Cannot connect to robot arm: {exc}")
 
         if not connected:
-            raise unittest.SkipTest("Cannot connect to robot arm")
+            cls._skip_class("Cannot connect to robot arm")
 
         logger.info(
             "Using robot channel=%s, robot_type=%s, urdf=%s, tcp_frame=%s",
@@ -86,7 +95,7 @@ class TestKinematicsModelReal(unittest.TestCase):
     def _read_live_joint_configuration(self) -> np.ndarray:
         joint_angles = self.controller.get_joint_angles()
         if joint_angles is None:
-            self.skipTest("Robot did not return live joint angles")
+            self._skip_test("Robot did not return live joint angles")
 
         q = np.array(joint_angles, dtype=float)
         self.assertEqual(
@@ -112,7 +121,7 @@ class TestKinematicsModelReal(unittest.TestCase):
                 dq[idx] = -test_speed
                 return dq
 
-        self.skipTest("No joint has enough clearance for a small integration step")
+        self._skip_test("No joint has enough clearance for a small integration step")
 
     def test_01_live_joint_count_matches_model_dofs(self):
         """验证真机返回的关节数与 URDF 模型的自由度定义一致。"""
