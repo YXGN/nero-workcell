@@ -232,6 +232,7 @@ def build_output_payload(
     rotation = R.from_matrix(T_board2base[:3, :3])
     quaternion = rotation.as_quat()
     euler_deg = rotation.as_euler("xyz", degrees=True)
+    checkerboard_origin_camera_distance = float(np.linalg.norm(T_board2cam[:3, 3]))
     checkerboard_center_board = np.array(
         [
             (corner_long - 1) * corner_size * 0.5,
@@ -256,6 +257,7 @@ def build_output_payload(
             "y": float(T_board2cam[1, 3]),
             "z": float(T_board2cam[2, 3]),
         },
+        "checkerboard_origin_camera_distance_m": checkerboard_origin_camera_distance,
         "checkerboard_center_camera_m": {
             "x": float(checkerboard_center_camera[0]),
             "y": float(checkerboard_center_camera[1]),
@@ -349,6 +351,7 @@ def print_human_readable(payload: dict[str, Any]) -> None:
     center_camera = payload["checkerboard_center_camera_m"]
     origin_base = payload["checkerboard_origin_base_m"]
     center_base = payload["checkerboard_center_base_m"]
+    origin_camera_distance = payload["checkerboard_origin_camera_distance_m"]
 
     print("checkerboard center in camera frame [m]:")
     print(f"  x: {center_camera['x']:.6f}")
@@ -358,6 +361,7 @@ def print_human_readable(payload: dict[str, Any]) -> None:
     print(f"  x: {origin_camera['x']:.6f}")
     print(f"  y: {origin_camera['y']:.6f}")
     print(f"  z: {origin_camera['z']:.6f}")
+    print(f"checkerboard origin straight-line distance from camera [m]: {origin_camera_distance:.6f}")
     print("checkerboard center in base frame [m]:")
     print(f"  x: {center_base['x']:.6f}")
     print(f"  y: {center_base['y']:.6f}")
