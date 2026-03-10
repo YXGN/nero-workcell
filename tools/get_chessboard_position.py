@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CALIBRATION_FILE = REPO_ROOT / "configs" / "eye_to_hand_calibration.json"
 DEFAULT_CAPTURE_CONFIG_FILE = REPO_ROOT / "src" / "nero_workcell" / "eye_to_hand" / "config.json"
 MAX_INTRINSICS_DELTA_PX = 50.0
+PREVIEW_WINDOW_NAME = "Checkerboard Capture"
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -263,6 +264,63 @@ def build_output_payload(
     }
 
 
+def build_preview_image(
+    color_image: np.ndarray,
+    pose_result: dict[str, Any] | None,
+) -> np.ndarray:
+    if pose_result is not None:
+        preview = pose_result["annotated_image"].copy()
+        status_text = "Checkerboard detected"
+        status_color = (0, 255, 0)
+    else:
+        preview = color_image.copy()
+        status_text = "Checkerboard not detected"
+        status_color = (0, 0, 255)
+
+    cv2.putText(
+        preview,
+        status_text,
+        (10, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        status_color,
+        2,
+    )
+    cv2.putText(
+        preview,
+        "Press 's' to capture, 'q' to quit",
+        (10, preview.shape[0] - 15),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (255, 255, 255),
+        2,
+    )
+    return preview
+
+
+def build_unavailable_preview(width: int, height: int) -> np.ndarray:
+    preview = np.zeros((height, width, 3), dtype=np.uint8)
+    cv2.putText(
+        preview,
+        "Color frame unavailable",
+        (10, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (0, 0, 255),
+        2,
+    )
+    cv2.putText(
+        preview,
+        "Press 'q' to quit",
+        (10, height - 15),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (255, 255, 255),
+        2,
+    )
+    return preview
+
+
 def print_human_readable(payload: dict[str, Any]) -> None:
     origin_camera = payload["checkerboard_origin_camera_m"]
     center_camera = payload["checkerboard_center_camera_m"]
@@ -313,7 +371,7 @@ def main() -> int:
         "--max-frames",
         type=int,
         default=30,
-        help="Maximum number of frames to try before giving up.",
+        help="Maximum consecutive failed frame reads before giving up.",
     )
     parser.add_argument(
         "--output-image",
@@ -378,7 +436,6 @@ def main() -> int:
 
     camera = None
     pose_result = None
-    last_image = None
 
     try:
         camera = RealSenseCamera.setup(
@@ -403,15 +460,37 @@ def main() -> int:
         )
         validate_intrinsics_delta(intrinsics_delta)
 
-        for frame_index in range(1, args.max_frames + 1):
+        cv2.namedWindow(PREVIEW_WINDOW_NAME, cv2.WINDOW_NORMAL)
+
+        failed_frame_reads = 0
+        while True:
             frame = camera.read_frame()
             color_image = frame["color"]
             if color_image is None:
-                logger.warning("Frame %s: color image unavailable", frame_index)
+                failed_frame_reads += 1
+                logger.warning(
+                    "Color image unavailable (%s/%s)",
+                    failed_frame_reads,
+                    args.max_frames,
+                )
+                cv2.imshow(
+                    PREVIEW_WINDOW_NAME,
+                    build_unavailable_preview(width, height),
+                )
+                key = cv2.waitKey(1) & 0xFF
+                if key in (ord("q"), ord("Q")):
+                    logger.info("User requested exit.")
+                    return 0
+                if failed_frame_reads >= args.max_frames:
+                    print(
+                        "Failed to read a color image from the camera.",
+                        file=sys.stderr,
+                    )
+                    return 1
                 continue
 
-            last_image = color_image
-            pose_result = estimate_checkerboard_pose(
+            failed_frame_reads = 0
+            preview_pose_result = estimate_checkerboard_pose(
                 color_image,
                 camera_matrix=camera_matrix,
                 dist_coeffs=dist_coeffs,
@@ -419,20 +498,29 @@ def main() -> int:
                 corner_short=corner_short,
                 corner_size=corner_size,
             )
-            if pose_result is not None:
-                logger.info("Checkerboard detected on frame %s", frame_index)
-                break
-            logger.debug("Frame %s: checkerboard not found", frame_index)
-
-        if pose_result is None:
-            if args.output_image is not None and last_image is not None:
-                save_image(args.output_image, last_image)
-            print(
-                "Failed to detect checkerboard in the captured frames.",
-                file=sys.stderr,
+            cv2.imshow(
+                PREVIEW_WINDOW_NAME,
+                build_preview_image(color_image, preview_pose_result),
             )
-            return 1
 
+            key = cv2.waitKey(1) & 0xFF
+            if key in (ord("q"), ord("Q")):
+                logger.info("User requested exit.")
+                return 0
+            if key not in (ord("s"), ord("S")):
+                continue
+
+            if preview_pose_result is None:
+                logger.warning(
+                    "Checkerboard not detected in current frame; capture ignored."
+                )
+                continue
+
+            pose_result = preview_pose_result
+            logger.info("Checkerboard captured successfully.")
+            break
+
+        assert pose_result is not None
         T_board2cam = pose_result["T_board2cam"]
         T_board2base = T_cam2base @ T_board2cam
         payload = build_output_payload(
@@ -461,6 +549,7 @@ def main() -> int:
         print(f"Capture failed: {exc}", file=sys.stderr)
         return 1
     finally:
+        cv2.destroyAllWindows()
         if camera is not None and camera.is_opened:
             camera.stop()
 
