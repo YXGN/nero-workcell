@@ -169,6 +169,29 @@ def estimate_checkerboard_pose(
         2,
     )
 
+    board_center = np.array(
+        [[(corner_long - 1) * corner_size * 0.5, (corner_short - 1) * corner_size * 0.5, 0.0]],
+        dtype=np.float32,
+    )
+    center_image_points, _ = cv2.projectPoints(
+        board_center,
+        rvec,
+        tvec,
+        camera_matrix,
+        dist_coeffs,
+    )
+    center = tuple(np.round(center_image_points[0, 0]).astype(int))
+    cv2.circle(annotated, center, 8, (255, 255, 0), 2)
+    cv2.putText(
+        annotated,
+        "BOARD CENTER",
+        (center[0] + 12, center[1] - 12),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (255, 255, 0),
+        2,
+    )
+
     return {
         "corners": corners_subpix,
         "rvec": rvec,
