@@ -11,11 +11,17 @@ WARNING:
 - Running test_03_relative_movement will move the robot!
 - Ensure there are no obstacles around the robot.
 - Keep your hand on the emergency stop button.
+
+Optional configuration:
+- Command-line arguments when running this file directly:
+  `--channel can_left`, `--channel can_right`, `--robot-type nero`.
 """
 
-import unittest
-import time
+import argparse
 import logging
+import sys
+import time
+import unittest
 
 from nero_workcell.core.arm_controller import ArmController
 
@@ -27,14 +33,45 @@ logging.basicConfig(
 )
 logger = logging.getLogger("TestArmControllerReal")
 
+DEFAULT_ROBOT_CHANNEL = "can0"
+DEFAULT_ROBOT_TYPE = "nero"
+
+
+def _parse_cli_args(argv):
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--channel",
+        default=DEFAULT_ROBOT_CHANNEL,
+        help="CAN channel to use, for example can0, can_left, or can_right",
+    )
+    parser.add_argument(
+        "--robot-type",
+        default=DEFAULT_ROBOT_TYPE,
+        help="Robot type passed to ArmController",
+    )
+    return parser.parse_known_args(argv)
+
 
 class TestArmControllerReal(unittest.TestCase):
     """ArmController real robot integration test."""
 
+    @classmethod
+    def setUpClass(cls):
+        cls.robot_channel = DEFAULT_ROBOT_CHANNEL
+        cls.robot_type = DEFAULT_ROBOT_TYPE
+        logger.info(
+            "Using robot channel=%s, robot_type=%s",
+            cls.robot_channel,
+            cls.robot_type,
+        )
+
     def setUp(self):
         """Initialize controller before each test"""
-        self.controller = ArmController(channel="can0", robot_type="nero")
-        
+        self.controller = ArmController(
+            channel=self.robot_channel,
+            robot_type=self.robot_type,
+        )
+
     def tearDown(self):
         """Disconnect after each test"""
         if self.controller.is_connected():
@@ -135,4 +172,7 @@ class TestArmControllerReal(unittest.TestCase):
         logger.info("Gripper test passed")
 
 if __name__ == '__main__':
-    unittest.main()
+    args, remaining_argv = _parse_cli_args(sys.argv[1:])
+    DEFAULT_ROBOT_CHANNEL = args.channel
+    DEFAULT_ROBOT_TYPE = args.robot_type
+    unittest.main(argv=[sys.argv[0], *remaining_argv])
