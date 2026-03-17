@@ -113,26 +113,26 @@ class TestArmControllerReal(unittest.TestCase):
                              msg="Failed to return to original position accurately")
         logger.info("Relative movement test passed")
 
-    # def test_04_gripper_control(self):
-    #     """Test: Gripper control (Open/Close)"""
-    #     logger.info("=== Test 04: Gripper Control Test ===")
-    #     if not self.controller.connect():
-    #         self.skipTest("Cannot connect to robot, skipping test")
-    #         
-    #     if self.controller.end_effector is None:
-    #         logger.warning("Gripper not initialized, skipping this test")
-    #         return
+    def test_04_gripper_control(self):
+        """Test: Gripper control (Open/Close)"""
+        logger.info("=== Test 04: Gripper Control Test ===")
+        if not self.controller.connect():
+            self.skipTest("Cannot connect to robot, skipping test")
+            
+        if self.controller.end_effector is None:
+            logger.warning("Gripper not initialized, skipping this test")
+            return
 
-    #     # 1. Open gripper
-    #     logger.info("Opening gripper (5cm)...")
-    #     self.controller.move_gripper(width=0.05, force=1.0)
-    #     time.sleep(2.0)
-    #     
-    #     # 2. Close gripper
-    #     logger.info("Closing gripper...")
-    #     self.controller.move_gripper(width=0.0, force=1.0)
-    #     time.sleep(2.0)
-    #     logger.info("Gripper test passed")
+        # 1. Open gripper
+        logger.info("Opening gripper (5cm)...")
+        self.controller.move_gripper(width=0.05, force=1.0)
+        time.sleep(2.0)
+        
+        # 2. Close gripper
+        logger.info("Closing gripper...")
+        self.controller.move_gripper(width=0.0, force=1.0)
+        time.sleep(2.0)
+        logger.info("Gripper test passed")
 
 if __name__ == '__main__':
     unittest.main()
