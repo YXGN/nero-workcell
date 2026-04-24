@@ -17,7 +17,7 @@ class ArmController:
     DEFAULT_ROBOT_TYPE = "nero"
     _POLL_INTERVAL = 0.1
 
-    def __init__(self, channel: str = "can0", *, robot_type: str = DEFAULT_ROBOT_TYPE):
+    def __init__(self, channel: str = "can_left", *, robot_type: str = DEFAULT_ROBOT_TYPE):
         """
         Initialize the controller.
 
@@ -200,6 +200,24 @@ class ArmController:
         if pose is not None:
             return list(pose.msg)
         return None
+
+    def set_tcp_offset(self, pose: List[float]) -> None:
+        """
+        Set TCP offset relative to flange, in flange frame.
+        pose: [x, y, z, roll, pitch, yaw] (meters / radians)
+        """
+        assert self.is_connected(), "Robot is not connected"
+        self.robot.set_tcp_offset(pose)
+
+    def get_flange2tcp_pose(self, flange_pose: List[float]) -> Optional[List[float]]:
+        """Convert a flange pose to TCP pose using the current TCP offset."""
+        assert self.is_connected(), "Robot is not connected"
+        return self.robot.get_flange2tcp_pose(flange_pose)
+
+    def get_tcp2flange_pose(self, tcp_pose: List[float]) -> Optional[List[float]]:
+        """Convert a target TCP pose to flange pose. Result can be passed to move_p()."""
+        assert self.is_connected(), "Robot is not connected"
+        return self.robot.get_tcp2flange_pose(tcp_pose)
 
     def get_arm_status(self):
         """

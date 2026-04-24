@@ -85,7 +85,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Get the robot's current pose and joint angles."
     )
-    parser.add_argument("--channel", default="can0", help="CAN channel")
+    parser.add_argument("--channel", default="can_left", help="CAN channel")
     parser.add_argument(
         "--json",
         action="store_true",

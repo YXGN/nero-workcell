@@ -380,9 +380,13 @@ def main():
                         logger_.warning(f"警告: 角点起始位置与第一张图片差异较大 (距离: {dist:.0f}px)")
                         logger_.warning("可能是标定板方向反了，建议检查！")
                 
+
                 # 采集数据
+                #增加偏移量（执行器坐标）
+                robot.set_tcp_offset([0.17500, 0.00000, -0.02350, 0.0, 0.0, 0.0])
+
                 try:
-                    pose = robot.get_flange_pose()
+                    pose = robot.get_tcp_pose()
                     success = pose is not None and len(pose) >= 6
                 except Exception as e:
                     logger_.error(f"获取位姿异常: {e}")
